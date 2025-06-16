@@ -12,12 +12,15 @@ import Message from "../db/message.model.js";
 import Group from "../db/group.model.js";
 import CRMPipeline from "../db/crmPipeline.model.js";
 import File_Storage from "../db/fileStorage.js";
+import Tariff from '../db/tariff.model.js';
+import ReferralLinks from '../db/referralLinks.model.js';
 
 
 const options = {
     componentLoader,
     rootPath: '/admin',
-    resources: [User, Chat, Newsletter, Project, ProjectFile, Channel, Client, Company, Promocode, Message, Group, CRMPipeline, File_Storage],
+    resources: [User, Chat, Newsletter, Project, ProjectFile, Channel, Client, Company, Promocode, Message, Group, CRMPipeline, File_Storage, Tariff, ReferralLinks],
     databases: [],
 };
+
 export default options;

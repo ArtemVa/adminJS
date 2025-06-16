@@ -156,9 +156,132 @@ const schemaOptions = {
   timePeerFloodBlock: { type: String, default: "" }
 };
 
+class ChannelClass {
+  static async ListWithPagination(query, options, details) {
+    let { 
+      page = 1,
+      limit = 10,
+      sortBy
+    } = options;
+
+    const projection = {
+      about: 1,
+      first_name: 1,
+      last_name: 1,
+      phone: 1,
+      project: 1,
+      projectTitle: 1,
+      regState: 1,
+      source: 1,
+      timePeerFloodBlock: 1,
+      username: 1,
+      containerStatus: 1,
+      _id: 1
+    };
+
+    console.log(sortBy);
+    let { key, order } = sortBy !== undefined ? JSON.parse(sortBy) : {};
+    let sortField = "_id";
+    let sortOrder = "desc";
+    let sortStage = { _id: -1 };  
+    let operationResult = null;
+    
+    if (key) {
+      try {
+        const sortParams = {key: key ? key : "first_name", order: order ? order : "asc"};
+        const allowedSortFields = [
+          "phone",
+          "projectTitle",
+          "status",
+          "source",
+          "user",
+          "_id"
+        ];
+    
+        if (allowedSortFields.includes(sortParams.key)) {
+          switch (sortParams.key) {
+            case "status":
+              sortField = "regState.techState";
+              break;
+            case "user":
+              sortField = "first_name";
+              break;
+            default:
+              sortField = sortParams.key;
+              break;
+          }
+          sortOrder = sortParams.order === 'asc' ? 1 : -1;
+          sortStage = { [sortField]: sortOrder };
+        }
+      } catch (e) {
+        console.error('Sort parameter error:', e);
+      }
+    }
+  
+    switch (details) {
+      case "list":
+        operationResult = await Channel.find(query)
+          .select(projection)
+          .skip((page - 1) * limit)
+          .limit(limit)
+          .sort(sortStage)
+          .lean();          
+        break;
+      default:
+        operationResult = await Channel.aggregate([
+          {
+            $match: query
+          },
+          {
+            $lookup: {
+              from: "projects",
+              localField: "project",
+              foreignField: "_id",
+              as: "projectData"
+            }
+          },
+          {
+            $addFields: {
+              projectTitle: { 
+                $ifNull: [
+                  { $arrayElemAt: ["$projectData.title", 0] },
+                  null
+                ] 
+              },
+              projectId: "$project"  
+            }
+          },
+          { $sort: sortStage },
+          { $skip: (page - 1) * limit },
+          { $limit: parseInt(limit) },
+          {
+            $project: projection
+          }
+        ])
+                    
+      break;
+    }
+
+    const total = await Channel.countDocuments(query);
+    const docs = operationResult.map(doc => {
+      return {
+        ...doc,
+        _id: doc._id
+      };
+    });
+        
+    return {
+      docs,
+      total,
+      page: parseInt(page),
+      totalPages: Math.ceil(total / limit)
+    };
+  }
+}
 // Составные индексы
 const schema = new Schema(schemaOptions);
 
 schema.plugin(softDeletePlugin);
+schema.loadClass(ChannelClass);
 const Channel = mongoose.model('Channel', schema);
 export default  Channel;
